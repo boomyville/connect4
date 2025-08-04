@@ -2,25 +2,127 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Connect 4: AI Always Goes First</title>
   <style>
-    body { font-family: sans-serif; text-align: center; }
-    table { margin: 20px auto; border-collapse: collapse; }
-    td {
-      width: 50px; height: 50px;
-      border: 1px solid #333; background: #eee;
-      cursor: pointer; font-size: 0;
+    body { 
+      font-family: sans-serif; 
+      text-align: center; 
+      margin: 0;
+      padding: 10px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      color: white;
     }
-    .red { background: red; }
-    .yellow { background: yellow; }
-    button { margin-top: 16px; }
+    
+    .game-container {
+      max-width: 100%;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    h2 {
+      font-size: clamp(1.2rem, 4vw, 2rem);
+      margin: 10px 0;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    table { 
+      margin: 20px auto; 
+      border-collapse: separate;
+      border-spacing: 8px;
+      background: #2c3e50;
+      padding: 15px;
+      border-radius: 15px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+      max-width: 95vw;
+    }
+    
+    td {
+      width: clamp(35px, 10vw, 60px);
+      height: clamp(35px, 10vw, 60px);
+      background: #34495e;
+      cursor: pointer;
+      border-radius: 50%;
+      position: relative;
+      transition: all 0.2s ease;
+      border: 3px solid #2c3e50;
+    }
+    
+    td:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    .piece {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: clamp(0.8rem, 2.5vw, 1.2rem);
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+      transition: all 0.3s ease;
+    }
+    
+    .red .piece {
+      background: radial-gradient(circle at 30% 30%, #ff6b6b, #e74c3c, #c0392b);
+      color: white;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    }
+    
+    .yellow .piece {
+      background: radial-gradient(circle at 30% 30%, #f1c40f, #f39c12, #e67e22);
+      color: #2c3e50;
+      text-shadow: 1px 1px 2px rgba(255,255,255,0.3);
+    }
+    
+    .red .piece::before {
+      content: "●";
+    }
+    
+    .yellow .piece::before {
+      content: "●";
+    }
+    
+    button { 
+      margin: 20px 10px;
+      padding: 12px 24px;
+      font-size: clamp(0.9rem, 3vw, 1.1rem);
+      background: linear-gradient(45deg, #3498db, #2980b9);
+      color: white;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
     
     /* AI Thinking Animation */
     .thinking-indicator {
       display: none;
-      margin: 10px auto;
-      font-size: 18px;
-      color: #333;
+      margin: 15px auto;
+      font-size: clamp(1rem, 3vw, 1.3rem);
+      color: #ecf0f1;
+      background: rgba(0,0,0,0.2);
+      padding: 15px 25px;
+      border-radius: 25px;
+      backdrop-filter: blur(10px);
+      max-width: 90%;
     }
     
     .thinking-dots {
@@ -41,10 +143,10 @@
     
     .thinking-spinner {
       display: inline-block;
-      width: 20px;
-      height: 20px;
-      border: 3px solid #f3f3f3;
-      border-top: 3px solid #ff0000;
+      width: clamp(16px, 4vw, 24px);
+      height: clamp(16px, 4vw, 24px);
+      border: 3px solid rgba(255,255,255,0.3);
+      border-top: 3px solid #ff6b6b;
       border-radius: 50%;
       animation: spin 1s linear infinite;
       margin-left: 10px;
@@ -55,17 +157,74 @@
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+    
+    #result {
+      font-size: clamp(1.2rem, 4vw, 1.8rem);
+      font-weight: bold;
+      margin: 20px 0;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+      background: rgba(0,0,0,0.2);
+      padding: 15px;
+      border-radius: 15px;
+      backdrop-filter: blur(10px);
+    }
+    
+    /* Mobile optimizations */
+    @media (max-width: 480px) {
+      .game-container {
+        padding: 10px;
+      }
+      
+      table {
+        border-spacing: 5px;
+        padding: 10px;
+      }
+      
+      td {
+        border-width: 2px;
+      }
+      
+      h2 br {
+        display: none;
+      }
+      
+      h2::after {
+        content: " - Player always goes second";
+      }
+    }
+    
+    /* Landscape phone optimization */
+    @media (max-height: 500px) and (orientation: landscape) {
+      .game-container {
+        padding: 5px;
+      }
+      
+      h2 {
+        margin: 5px 0;
+      }
+      
+      table {
+        margin: 10px auto;
+      }
+      
+      button {
+        margin: 10px 5px;
+        padding: 8px 16px;
+      }
+    }
   </style>
 </head>
 <body>
-  <h2>Connect 4: AI (Red) vs Player (Yellow) <br> Player always goes second</h2>
-  <table id="board"></table>
-  <div class="thinking-indicator" id="thinkingIndicator">
-    AI is thinking<span class="thinking-dots"></span>
-    <div class="thinking-spinner" id="spinner" style="display:none;"></div>
+  <div class="game-container">
+    <h2>Connect 4: AI (Red) vs Player (Yellow)</h2>
+    <table id="board"></table>
+    <div class="thinking-indicator" id="thinkingIndicator">
+      AI is thinking<span class="thinking-dots"></span>
+      <div class="thinking-spinner" id="spinner" style="display:none;"></div>
+    </div>
+    <button onclick="resetGame()">Restart</button>
+    <p id="result"></p>
   </div>
-  <button onclick="resetGame()">Restart</button>
-  <p id="result"></p>
   <script>
     const ROWS = 6, COLS = 7;
     let board, gameOver, currentPlayer;
@@ -94,8 +253,19 @@
         const tr = document.createElement('tr');
         for (let c = 0; c < COLS; c++) {
           const td = document.createElement('td');
-          if (board[r][c] === AI) td.classList.add('red');
-          if (board[r][c] === HUMAN) td.classList.add('yellow');
+          
+          // Create piece element if there's a piece in this position
+          if (board[r][c] !== 0) {
+            const piece = document.createElement('div');
+            piece.className = 'piece';
+            if (board[r][c] === AI) {
+              td.classList.add('red');
+            } else if (board[r][c] === HUMAN) {
+              td.classList.add('yellow');
+            }
+            td.appendChild(piece);
+          }
+          
           td.onclick = () => handlePlayerMove(c);
           tr.appendChild(td);
         }
