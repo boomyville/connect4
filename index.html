@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Connect 4: AI Always Goes First</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; }
+    table { margin: 20px auto; border-collapse: collapse; }
+    td {
+      width: 50px; height: 50px;
+      border: 1px solid #333; background: #eee;
+      cursor: pointer; font-size: 0;
+    }
+    .red { background: red; }
+    .yellow { background: yellow; }
+    button { margin-top: 16px; }
+    
+    /* AI Thinking Animation */
+    .thinking-indicator {
+      display: none;
+      margin: 10px auto;
+      font-size: 18px;
+      color: #333;
+    }
+    
+    .thinking-dots {
+      display: inline-block;
+    }
+    
+    .thinking-dots::after {
+      content: '';
+      animation: thinking 1.5s infinite;
+    }
+    
+    @keyframes thinking {
+      0% { content: '.'; }
+      33% { content: '..'; }
+      66% { content: '...'; }
+      100% { content: '.'; }
+    }
+    
+    .thinking-spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #ff0000;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-left: 10px;
+      vertical-align: middle;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <h2>Connect 4: AI (Red) vs Player (Yellow) <br> Player always goes second</h2>
+  <table id="board"></table>
+  <div class="thinking-indicator" id="thinkingIndicator">
+    AI is thinking<span class="thinking-dots"></span>
+    <div class="thinking-spinner" id="spinner" style="display:none;"></div>
+  </div>
+  <button onclick="resetGame()">Restart</button>
+  <p id="result"></p>
+  <script>
+    const ROWS = 6, COLS = 7;
+    let board, gameOver, currentPlayer;
+    const HUMAN = 2, AI = 1;
+
+    function createBoard() {
+      board = Array.from({length: ROWS}, () => Array(COLS).fill(0));
+      gameOver = false;
+      currentPlayer = AI;
+      drawBoard();
+      document.getElementById('result').textContent = '';
+      if (currentPlayer === AI) {
+        // Show thinking indicator for AI's first move
+        document.getElementById('thinkingIndicator').style.display = 'block';
+        setTimeout(() => {
+          aiMove();
+          document.getElementById('thinkingIndicator').style.display = 'none';
+        }, 400);
+      }
+    }
+    
+    function drawBoard() {
+      const table = document.getElementById('board');
+      table.innerHTML = '';
+      for (let r = 0; r < ROWS; r++) {
+        const tr = document.createElement('tr');
+        for (let c = 0; c < COLS; c++) {
+          const td = document.createElement('td');
+          if (board[r][c] === AI) td.classList.add('red');
+          if (board[r][c] === HUMAN) td.classList.add('yellow');
+          td.onclick = () => handlePlayerMove(c);
+          tr.appendChild(td);
+        }
+        table.appendChild(tr);
+      }
+    }
+
+    function handlePlayerMove(col) {
+      if (gameOver || currentPlayer !== HUMAN) return;
+      if (!dropDisc(col, HUMAN)) return;
+      drawBoard();
+      checkGame();
+      if (!gameOver) {
+        currentPlayer = AI;
+        // Show thinking indicator
+        document.getElementById('thinkingIndicator').style.display = 'block';
+        setTimeout(() => {
+          aiMove();
+          // Hide thinking indicator after AI move
+          document.getElementById('thinkingIndicator').style.display = 'none';
+        }, 400);
+      }
+    }
+
+    function aiMove() {
+        // Advanced threat analysis with multiple levels
+        
+        // Level 1: Check for immediate wins
+        for (let col = 0; col < COLS; col++) {
+            if (canDropDisc(col)) {
+                dropDisc(col, AI);
+                if (winner(board, AI)) {
+                    drawBoard();
+                    checkGame();
+                    return;
+                }
+                undoDropDisc(col);
+            }
+        }
+        
+        // Level 2: Block immediate human wins
+        for (let col = 0; col < COLS; col++) {
+            if (canDropDisc(col)) {
+                dropDisc(col, HUMAN);
+                if (winner(board, HUMAN)) {
+                    undoDropDisc(col);
+                    dropDisc(col, AI);
+                    drawBoard();
+                    checkGame();
+                    currentPlayer = HUMAN;
+                    return;
+                }
+                undoDropDisc(col);
+            }
+        }
+        
+        // Level 3: Check for setup moves (creating multiple threats)
+        const setupMove = findSetupMove();
+        if (setupMove !== -1) {
+            dropDisc(setupMove, AI);
+            drawBoard();
+            checkGame();
+            currentPlayer = HUMAN;
+            return;
+        }
+        
+        // Level 4: Prevent opponent setup moves
+        const blockSetup = findOpponentSetup();
+        if (blockSetup !== -1) {
+            dropDisc(blockSetup, AI);
+            drawBoard();
+            checkGame();
+            currentPlayer = HUMAN;
+            return;
+        }
+        
+        // Level 5: Use enhanced minimax with deeper search
+        let [score, move] = minimax(board, 9, -Infinity, Infinity, true);
+        if (move !== null) {
+            dropDisc(move, AI);
+        } else {
+            // Fallback with advanced column preference
+            const smartFallback = [3, 2, 4, 1, 5, 0, 6];
+            for (let col of smartFallback) {
+                if (canDropDisc(col)) {
+                    dropDisc(col, AI);
+                    break;
+                }
+            }
+        }
+        drawBoard();
+        checkGame();
+        currentPlayer = HUMAN;
+    }
+
+    // Find moves that create multiple winning opportunities
+    function findSetupMove() {
+        for (let col = 0; col < COLS; col++) {
+            if (canDropDisc(col)) {
+                dropDisc(col, AI);
+                let threats = 0;
+                
+                // Count how many ways AI can win next turn
+                for (let testCol = 0; testCol < COLS; testCol++) {
+                    if (canDropDisc(testCol)) {
+                        dropDisc(testCol, AI);
+                        if (winner(board, AI)) threats++;
+                        undoDropDisc(testCol);
+                    }
+                }
+                
+                undoDropDisc(col);
+                
+                // If this move creates 2+ threats, it's a winning setup
+                if (threats >= 2) return col;
+            }
+        }
+        return -1;
+    }
+
+    // Find and block opponent setup moves
+    function findOpponentSetup() {
+        for (let col = 0; col < COLS; col++) {
+            if (canDropDisc(col)) {
+                dropDisc(col, HUMAN);
+                let threats = 0;
+                
+                // Count how many ways human can win next turn
+                for (let testCol = 0; testCol < COLS; testCol++) {
+                    if (canDropDisc(testCol)) {
+                        dropDisc(testCol, HUMAN);
+                        if (winner(board, HUMAN)) threats++;
+                        undoDropDisc(testCol);
+                    }
+                }
+                
+                undoDropDisc(col);
+                
+                // If opponent's move would create 2+ threats, block it
+                if (threats >= 2) return col;
+            }
+        }
+        return -1;
+    }
+
+    function canDropDisc(col) {
+        return board[0][col] === 0;
+    }
+
+    function undoDropDisc(col) {
+        for (let r = 0; r < ROWS; r++) {
+            if (board[r][col] !== 0) {
+                board[r][col] = 0;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function dropDisc(col, player) {
+      for (let r = ROWS - 1; r >= 0; r--) {
+        if (!board[r][col]) {
+          board[r][col] = player;
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function checkGame() {
+      if (winner(board, AI)) endGame('AI WINS!');
+      else if (winner(board, HUMAN)) endGame('PLAYER WINS!');
+      else if (board[0].every(cell => cell)) endGame('DRAW!');
+    }
+    function endGame(msg) {
+      gameOver = true;
+      document.getElementById('result').textContent = msg;
+    }
+    function winner(board, player) {
+      // Check horizontal, vertical, diagonal
+      for (let r = 0; r < ROWS; r++)
+        for (let c = 0; c < COLS; c++)
+          if (
+            checkDir(r, c, 0, 1, player) ||
+            checkDir(r, c, 1, 0, player) ||
+            checkDir(r, c, 1, 1, player) ||
+            checkDir(r, c, 1, -1, player)
+          ) return true;
+      return false;
+    }
+    function checkDir(r, c, dr, dc, player) {
+      for (let i = 0; i < 4; i++)
+        if (
+          !board[r + dr * i] ||
+          board[r + dr * i][c + dc * i] !== player
+        )
+          return false;
+      return true;
+    }
+    function evaluateBoard(b, player) {
+        const opponent = player === AI ? HUMAN : AI;
+        let score = 0;
+        
+        // Enhanced center column preference with decay from center
+        const centerValues = [3, 4, 5, 4, 5, 4, 3];
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                if (b[r][c] === player) {
+                    score += centerValues[c];
+                    // Bonus for pieces higher up (more strategic)
+                    score += (ROWS - r) * 0.5;
+                }
+            }
+        }
+        
+        // Evaluate all possible 4-in-a-row windows
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                // Horizontal
+                if (c + 3 < COLS) {
+                    score += evaluateWindow([b[r][c], b[r][c+1], b[r][c+2], b[r][c+3]], player);
+                }
+                // Vertical
+                if (r + 3 < ROWS) {
+                    score += evaluateWindow([b[r][c], b[r+1][c], b[r+2][c], b[r+3][c]], player);
+                }
+                // Diagonal /
+                if (r + 3 < ROWS && c + 3 < COLS) {
+                    score += evaluateWindow([b[r][c], b[r+1][c+1], b[r+2][c+2], b[r+3][c+3]], player);
+                }
+                // Diagonal \
+                if (r + 3 < ROWS && c - 3 >= 0) {
+                    score += evaluateWindow([b[r][c], b[r+1][c-1], b[r+2][c-2], b[r+3][c-3]], player);
+                }
+            }
+        }
+        
+        // Bonus for controlling key positions
+        score += evaluateControlPositions(b, player);
+        
+        return score;
+    }
+
+    function evaluateWindow(window, player) {
+        const opponent = player === AI ? HUMAN : AI;
+        let score = 0;
+        
+        const playerCount = window.filter(cell => cell === player).length;
+        const opponentCount = window.filter(cell => cell === opponent).length;
+        const emptyCount = window.filter(cell => cell === 0).length;
+        
+        // Can't win if opponent has pieces in this window
+        if (playerCount > 0 && opponentCount > 0) return 0;
+        
+        if (playerCount === 4) {
+            score += 10000; // Winning position
+        } else if (playerCount === 3 && emptyCount === 1) {
+            score += 100; // Strong threat
+        } else if (playerCount === 2 && emptyCount === 2) {
+            score += 10; // Building position
+        } else if (playerCount === 1 && emptyCount === 3) {
+            score += 1; // Potential
+        }
+        
+        // Heavily penalize opponent opportunities
+        if (opponentCount === 3 && emptyCount === 1) {
+            score -= 500; // Must block this threat
+        } else if (opponentCount === 2 && emptyCount === 2) {
+            score -= 50; // Watch this developing threat
+        }
+        
+        return score;
+    }
+
+    // Evaluate control of strategic positions
+    function evaluateControlPositions(b, player) {
+        let score = 0;
+        const opponent = player === AI ? HUMAN : AI;
+        
+        // Control of bottom row is valuable
+        for (let c = 0; c < COLS; c++) {
+            if (b[ROWS-1][c] === player) score += 5;
+            if (b[ROWS-1][c] === opponent) score -= 3;
+        }
+        
+        // Control of key diagonal positions
+        const keyPositions = [
+            [ROWS-1, 3], [ROWS-2, 3], [ROWS-3, 3], // Center column
+            [ROWS-1, 2], [ROWS-1, 4], // Adjacent to center
+            [ROWS-2, 2], [ROWS-2, 4]  // Second row adjacent
+        ];
+        
+        for (let [r, c] of keyPositions) {
+            if (r >= 0 && r < ROWS && c >= 0 && c < COLS) {
+                if (b[r][c] === player) score += 3;
+                if (b[r][c] === opponent) score -= 2;
+            }
+        }
+        
+        return score;
+    }
+
+    function minimax(board, depth, alpha, beta, maximizing) {
+        // Check terminal states with faster wins preferred
+        if (winner(board, AI)) return [100000 - (9 - depth), null];
+        if (winner(board, HUMAN)) return [-100000 + (9 - depth), null];
+        
+        const validMoves = [];
+        for (let col = 0; col < COLS; col++) {
+            if (canDropDisc(col)) validMoves.push(col);
+        }
+        
+        if (depth === 0 || validMoves.length === 0) {
+            const aiScore = evaluateBoard(board, AI);
+            const humanScore = evaluateBoard(board, HUMAN);
+            return [aiScore - humanScore, null];
+        }
+
+        // Enhanced move ordering: prioritize center, then by column activity
+        validMoves.sort((a, b) => {
+            const aCenterDist = Math.abs(3 - a);
+            const bCenterDist = Math.abs(3 - b);
+            if (aCenterDist !== bCenterDist) return aCenterDist - bCenterDist;
+            
+            // Secondary sort by column "activity" (how many pieces)
+            const aActivity = board.reduce((sum, row) => sum + (row[a] !== 0 ? 1 : 0), 0);
+            const bActivity = board.reduce((sum, row) => sum + (row[b] !== 0 ? 1 : 0), 0);
+            return bActivity - aActivity; // Prefer more active columns
+        });
+        
+        if (maximizing) {
+            let value = -Infinity;
+            let bestMove = validMoves[0];
+            
+            for (const move of validMoves) {
+                dropDisc(move, AI);
+                const [score] = minimax(board, depth - 1, alpha, beta, false);
+                undoDropDisc(move);
+                
+                if (score > value) {
+                    value = score;
+                    bestMove = move;
+                }
+                alpha = Math.max(alpha, value);
+                if (alpha >= beta) break; // Alpha-beta pruning
+            }
+            return [value, bestMove];
+        } else {
+            let value = Infinity;
+            let bestMove = validMoves[0];
+            
+            for (const move of validMoves) {
+                dropDisc(move, HUMAN);
+                const [score] = minimax(board, depth - 1, alpha, beta, true);
+                undoDropDisc(move);
+                
+                if (score < value) {
+                    value = score;
+                    bestMove = move;
+                }
+                beta = Math.min(beta, value);
+                if (alpha >= beta) break; // Alpha-beta pruning
+            }
+            return [value, bestMove];
+        }
+    }
+
+    function resetGame() { createBoard(); }
+    createBoard();
+  </script>
+</body>
+</html>
